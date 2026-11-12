@@ -19,6 +19,7 @@
       cv.addEventListener('pointercancel', e => this._up(e, true));
       cv.addEventListener('pointerleave', e => { if (!this.active && this.eraserPos) { this.eraserPos = null; this._sched(); } });
       cv.addEventListener('contextmenu', e => e.preventDefault());
+      if (/[?#&]pendebug/.test(location.href)) Ink.debug();
     }
 
     /* ---- Größe/Zoom ---- */
@@ -121,7 +122,11 @@
     /* ---- Eingabe ---- */
     /* Seitentaste des S Pen: Chrome meldet sie als Taste 2 (rechts), das Radierende als Taste 5/32.
        Manche Geräte melden den Stift mit gedrückter Taste als Maus – auch das zählt als Radierer. */
-    _btnErase(e) { return e.button === 2 || e.button === 5 || !!(e.buttons & 2) || !!(e.buttons & 32); }
+    _btnErase(e) {
+      // Stift: jede Taste außer der normalen Spitze (button 0 / buttons 1) gilt als Radierer
+      if (e.pointerType === 'pen') return (e.button > 0) || ((e.buttons & ~1) !== 0);
+      return e.button === 2 || e.button === 5 || !!(e.buttons & 2) || !!(e.buttons & 32);
+    }
     _isDrawer(e) {
       if (e.pointerType === 'pen') return true;
       if (e.pointerType === 'mouse') return e.button === 0 || this._btnErase(e);
@@ -242,5 +247,18 @@
     canUndo() { return this.undoS.length > 0; }
     canRedo() { return this.redoS.length > 0; }
   }
+  /* Diagnose: App mit …/lehrerplaner/?pendebug öffnen, zeigt die letzten Stift-Ereignisse */
+  Ink.debug = () => {
+    if (document.getElementById('pdbg')) return;
+    const box = document.createElement('div'); box.id = 'pdbg';
+    box.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99;background:#1d242b;color:#fff;font:12px/1.4 monospace;padding:8px 12px;border-radius:8px;pointer-events:none;max-width:60vw;white-space:pre';
+    document.body.appendChild(box);
+    const log = [];
+    const add = t => { log.unshift(t); log.length = 8; box.textContent = log.filter(Boolean).join('\n'); };
+    ['pointerdown', 'pointerup', 'pointercancel', 'contextmenu', 'auxclick'].forEach(type => window.addEventListener(type, e => add(`${type} typ=${e.pointerType || '-'} button=${e.button} buttons=${e.buttons} druck=${e.pressure != null ? e.pressure.toFixed(2) : '-'}`), true));
+    let lastB = -1;
+    window.addEventListener('pointermove', e => { if (e.buttons !== lastB) { lastB = e.buttons; add(`pointermove typ=${e.pointerType} button=${e.button} buttons=${e.buttons}`); } }, true);
+    window.addEventListener('keydown', e => add(`keydown ${e.key}`), true);
+  };
   root.Ink = Ink;
 })(window);
