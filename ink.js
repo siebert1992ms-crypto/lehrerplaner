@@ -119,9 +119,12 @@
     }
 
     /* ---- Eingabe ---- */
+    /* Seitentaste des S Pen: Chrome meldet sie als Taste 2 (rechts), das Radierende als Taste 5/32.
+       Manche Geräte melden den Stift mit gedrückter Taste als Maus – auch das zählt als Radierer. */
+    _btnErase(e) { return e.button === 2 || e.button === 5 || !!(e.buttons & 2) || !!(e.buttons & 32); }
     _isDrawer(e) {
       if (e.pointerType === 'pen') return true;
-      if (e.pointerType === 'mouse') return e.button === 0;
+      if (e.pointerType === 'mouse') return e.button === 0 || this._btnErase(e);
       if (e.pointerType === 'touch') return !!this.h.fingerDraw() && performance.now() - this.lastPen > 700;
       return false;
     }
@@ -133,7 +136,7 @@
         try { this.cv.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
         this.active = { id: e.pointerId };
         let tool = this.h.tool();
-        if (e.pointerType === 'pen' && (e.buttons & 32 || e.buttons & 2)) tool = 'eraser';
+        if ((e.pointerType === 'pen' || e.pointerType === 'mouse') && this._btnErase(e)) tool = 'eraser';
         const p = this._pt(e);
         if (tool === 'eraser') { this.erasing = { list: [] }; this._erase(p); }
         else this.cur = { cx: e.clientX, cy: e.clientY, c: this.h.color(tool), w: tool === 'hl' ? this.h.size(tool) : this.h.size(tool), t: tool === 'hl' ? 'hl' : 'pen', p: [p], drawn: 1 };
@@ -153,6 +156,12 @@
     _move(e) {
       if (e.pointerType === 'pen') this.lastPen = performance.now();
       if (this.active && this.active.id === e.pointerId) {
+        if (this.cur && !this.erasing && e.pointerType !== 'touch' && this._btnErase(e)) {
+          // Taste während des Schreibens gedrückt: Strich abschließen, ab hier radieren
+          const s = this.cur; this.cur = null;
+          if (s.p.length > 2) this._commit(s);
+          this.erasing = { list: [] };
+        }
         const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
         for (const ev of (evs.length ? evs : [e])) {
           const p = this._pt(ev);
@@ -174,7 +183,7 @@
           this.h.pan(-(cx - this.pinch.cx), -(cy - this.pinch.cy));
           this.pinch.cx = cx; this.pinch.cy = cy;
         }
-      } else if (e.pointerType === 'pen' && !this.active && this.h.tool() === 'eraser') {
+      } else if (e.pointerType === 'pen' && !this.active && (this.h.tool() === 'eraser' || this._btnErase(e))) {
         this.eraserPos = this._pt(e); this._sched();
       }
     }
@@ -188,13 +197,7 @@
         } else if (this.cur) {
           const s = this.cur; this.cur = null;
           if (!cancel && s.p.length <= 4 && this.h.onPenTap && s.cx !== undefined && Math.hypot(s.p[s.p.length - 1][0] - s.p[0][0], s.p[s.p.length - 1][1] - s.p[0][1]) < 6 && this.h.onPenTap(s.cx, s.cy)) { this._full(); return; }
-          if (!cancel) {
-            if (s.p.length === 1) s.p.push([s.p[0][0] + 0.01, s.p[0][1], s.p[0][2]]);
-            s.p = s.p.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]);
-            delete s.drawn;
-            this.strokes.push(s); this.undoS.push({ t: 'add', s }); this.redoS = [];
-            this._drawStroke(this.bctx, s); this.h.onChange(this.strokes);
-          }
+          if (!cancel) this._commit(s);
           this._full();
         }
       } else if (this.touches.has(e.pointerId)) {
@@ -208,6 +211,14 @@
         }
         if (this.touches.size < 2) this.pinch = null;
       }
+    }
+
+    _commit(s) {
+      if (s.p.length === 1) s.p.push([s.p[0][0] + 0.01, s.p[0][1], s.p[0][2]]);
+      s.p = s.p.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]);
+      delete s.drawn;
+      this.strokes.push(s); this.undoS.push({ t: 'add', s }); this.redoS = [];
+      this._drawStroke(this.bctx, s); this.h.onChange(this.strokes);
     }
 
     /* ---- Aktionen ---- */

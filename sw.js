@@ -1,5 +1,5 @@
 /* Offline-Cache: App startet ohne Netz. Beim nächsten Start mit Netz werden Änderungen automatisch nachgeladen. */
-const V = 'lehrerplaner-v3';
+const V = 'lehrerplaner-v4';
 const ASSETS = ['./', 'index.html', 'style.css', 'lib.js', 'crypto.js', 'store.js', 'ink.js', 'stundenplan.js', 'app.js', 'manifest.webmanifest',
   'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'vendor/pdf.min.js', 'vendor/pdf.worker.min.js'];
 

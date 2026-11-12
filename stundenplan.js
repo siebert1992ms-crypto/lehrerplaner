@@ -33,11 +33,9 @@
     const plans = await load();
     if (!wg.isConnected) return;
     [...wg.children].filter(el => el.classList.contains('wcol')).slice(0, 5).forEach(col => {
-      const body = col.querySelector('.wcb'), u = col.querySelector('.wch u');
-      if (!body || !u) return;
-      const m = u.textContent.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-      const iso = m ? `${m[3]}-${PL.pad(+m[2])}-${PL.pad(+m[1])}` : null;
-      const day = m ? (new Date(+m[3], +m[2] - 1, +m[1]).getDay() + 6) % 7 : -1;
+      const body = col.querySelector('.wcb'), iso = col.dataset.date;
+      if (!body || !iso) return;
+      const day = (PL.parseISO(iso).getDay() + 6) % 7;
       const school = iso && day >= 0 && day < 5 && !col.classList.contains('fer') && !col.classList.contains('hol');
       const p = school ? planFor(plans, iso) : null, slots = (p && p.slots) || {};
       body.classList.add('spb');
@@ -55,8 +53,7 @@
     const list = sorted(plans);
     if (!list.find(p => p.id === sel)) { const today = PL.iso(new Date()), cur = planFor(plans, today); sel = (cur || list[list.length - 1] || {}).id || null; }
     const p = list.find(x => x.id === sel);
-    let h = `<b>Stundenplan</b><p class="muted">Klassen je Doppelstunde eintragen (optional Fach/Raum). Sie erscheinen auf jeder Wochenseite in den vier Blöcken – außer an Ferien- und Feiertagen.
-      Für einen neuen Stundenplan (z. B. ab Januar) einfach einen weiteren Plan mit „gültig ab“ anlegen: Jeder Plan gilt bis zum Tag vor dem nächsten.</p>`;
+    let h = `<b>Stundenplan</b><p class="muted">Klasse je Doppelstunde, optional Fach oder Raum. Erscheint auf jeder Wochenseite, außer an Ferien- und Feiertagen. Jeder Plan gilt ab seinem Datum bis zum Tag vor dem nächsten Plan.</p>`;
     if (!p) {
       h += `<button class="btn pri" data-spact="new">Ersten Stundenplan anlegen</button>`;
       card.innerHTML = h; return;
@@ -67,7 +64,7 @@
       <div style="overflow-x:auto"><table class="tbl sptbl"><thead><tr><th></th>${DAYS.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>
       ${BLK.map((n, b) => `<tr><th>${n} Std.</th>${DAYS.map((_, d) => { const e = (p.slots || {})[`${d}-${b}`] || {}; return `<td><input type="text" list="spcl" data-sps="${d}-${b}" data-spk="k" value="${esc(e.k || '')}" placeholder="Klasse"><input type="text" class="spz" data-sps="${d}-${b}" data-spk="z" value="${esc(e.z || '')}" placeholder="Fach / Raum"></td>`; }).join('')}</tr>`).join('')}
       </tbody></table></div><datalist id="spcl">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-      <div class="row" style="margin-top:10px"><button class="btn sm" data-spact="new">+ Neuer Plan (leer)</button><button class="btn sm" data-spact="copy">Als Kopie neu anlegen</button><button class="btn sm warn" data-spact="del">Plan löschen</button></div>`;
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-spact="new">Neuer Plan</button><button class="btn sm" data-spact="copy">Als Kopie neu anlegen</button><button class="btn sm warn" data-spact="del">Plan löschen</button></div>`;
     card.innerHTML = h;
   }
   const card = () => document.getElementById('spcard');
@@ -117,7 +114,7 @@
     const wg = document.querySelector('#paper .pp .wg'); if (wg && !wg.dataset.sp) decorateWeek(wg);
     const h2 = document.querySelector('#main .wrap > h2.h');
     if (h2 && h2.textContent.trim() === 'Einstellungen' && !card()) {
-      const c = document.createElement('div'); c.className = 'card'; c.id = 'spcard'; c.style.marginBottom = '14px';
+      const c = document.createElement('div'); c.className = 'card'; c.id = 'spcard'; 
       h2.after(c); renderCard(c);
     }
   }
@@ -127,13 +124,13 @@
   const css = document.createElement('style');
   css.textContent = `
   .pp .wcb.spb { margin: 0; background: none; display: flex; flex-direction: column; }
-  .pp .spbl { flex: 1 1 0; min-height: 0; margin: 0 5px; position: relative; border-top: 1.5px solid #9fb0bc; overflow: hidden;
-    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 26px, #dadada 26px, #dadada 27px); }
+  .pp .spbl { flex: 1 1 0; min-height: 0; padding: 0 6px; position: relative; border-top: 1px solid var(--line-2); overflow: hidden;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 26px, #e2e6ea 26px, #e2e6ea 27px); background-origin: content-box; background-clip: content-box; }
   .pp .spbl:first-child { border-top: 0; }
-  .pp .spbl.has { background-color: #f1f5f8; }
-  .pp .spn { position: absolute; left: 1px; top: 4px; font-size: 9.5px; font-weight: 700; color: #8a9aa6; }
-  .pp .spk { position: absolute; left: 30px; right: 2px; top: 3px; font-size: 12.5px; font-weight: 700; color: #2b4f66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pp .spk small { font-weight: 500; color: #6e8797; font-size: 11px; }
+  .pp .spbl.has { background-color: #f3f6f8; }
+  .pp .spn { position: absolute; left: 6px; top: 5px; font-size: 11px; font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .pp .spk { position: absolute; left: 40px; right: 6px; top: 4px; font-size: 13px; font-weight: 600; color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pp .spk small { font-weight: 400; color: var(--text-3); font-size: 12px; }
   .sptbl td { vertical-align: top; min-width: 150px; }
   .sptbl tbody th { white-space: nowrap; font-size: 13px; color: var(--ink); }
   .sptbl input.spz { margin-top: 4px; font-size: 13px; min-height: 34px; }`;

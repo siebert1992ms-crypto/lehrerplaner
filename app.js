@@ -26,6 +26,8 @@
     sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
     lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/>',
+    gear: '<path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>'
   };
   const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
@@ -34,7 +36,6 @@
   const HL_COLORS = ['#ffd400', '#7ddc6f', '#ff7eb6', '#6ec6ff'];
   const PEN_SIZES = [1.6, 2.8, 4.8];
   const HL_SIZES = [12, 18, 28];
-  const PW = 1200, PH = 848;
 
   const CAL = ['ov', 'ferien', 'pnote', 'month', 'week'];
   const S = { sy: PL.schuljahrOf(new Date()), settings: null, classes: [], pages: [], view: null, P: null, lastCal: null, classFilter: {}, persisted: null };
@@ -90,17 +91,18 @@
 
   /* ---------- Navigation ---------- */
   function go(v, push = true) {
-    cleanupPage(); S.view = v;
+    cleanupPage(); S.view = v; S.popOpen = false;
     if (CAL.includes(v.t)) S.lastCal = v;
     if (push) history.pushState({ v }, '');
     render();
   }
-  window.addEventListener('popstate', e => { if (e.state && e.state.v) { cleanupPage(); S.view = e.state.v; render(); } });
+  window.addEventListener('popstate', e => { if (e.state && e.state.v) { cleanupPage(); S.view = e.state.v; S.popOpen = false; render(); } });
   const todayView = () => { const d = new Date(); return { t: 'month', y: d.getFullYear(), m: d.getMonth() }; };
 
   function render() {
-    renderTop();
     const t = S.view.t;
+    document.body.classList.toggle('cal', [...CAL, 'note'].includes(t));
+    renderTop();
     if ([...CAL, 'note'].includes(t)) showInkPage();
     else if (t === 'notes') viewNotes();
     else if (t === 'classes') viewClasses();
@@ -109,26 +111,26 @@
   }
   function renderTop() {
     const t = S.view.t, on = a => (a.includes(t) ? 'on' : '');
-    $('#top').innerHTML = `<div class="brand"><span class="dot"></span>Lehrerplaner</div>
-      <button class="nav ${on(CAL)}" data-act="nav-cal">${ic('calendar')}Kalender</button>
-      <button class="nav ${on(['notes', 'note'])}" data-act="nav-notes">${ic('file')}Notizen</button>
-      <button class="nav ${on(['classes', 'class'])}" data-act="nav-classes">${ic('users')}Klassen</button>
-      <span class="spacer"></span>
-      ${S.lockMeta ? `<button class="nav" data-act="lock-now">${ic('lock')}Sperren</button>` : ''}
-      <button class="nav ${on(['settings'])}" data-act="nav-settings">${ic('sliders')}Einstellungen</button>`;
+    $('#nav').innerHTML = `<button class="nav ${on(CAL)}" data-act="nav-cal" title="Kalender">${ic('calendar')}<span class="lbl">Kalender</span></button>
+      <button class="nav ${on(['notes', 'note'])}" data-act="nav-notes" title="Notizen">${ic('file')}<span class="lbl">Notizen</span></button>
+      <button class="nav ${on(['classes', 'class'])}" data-act="nav-classes" title="Klassen">${ic('users')}<span class="lbl">Klassen</span></button><span class="vsep"></span>`;
+    $('#topr').innerHTML = `<span class="vsep"></span>${S.lockMeta ? `<button class="nav ic" data-act="lock-now" aria-label="Sperren" title="Sperren">${ic('lock')}</button>` : ''}
+      <button class="nav ic ${on(['settings'])}" data-act="nav-settings" aria-label="Einstellungen" title="Einstellungen">${ic('gear')}</button>`;
   }
 
   const sjLabel = sy => `${sy}/${String(sy + 1).slice(2)}`;
-  /* ---------- Planerseiten bauen (Layout wie dein Schuljahresplaner-PDF, 1165 × 824) ---------- */
-  const PPW = 1165, PPH = 824;
+  /* ---------- Planerseiten bauen (Format 16:10 für das Tab S9, logisch 1280 × 760) ---------- */
+  const PPW = 1280, PPH = 760;
   const MON3 = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
   const monNav = (y, m) => `month:${y}-${PL.pad(m + 1)}`;
-  const WDS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
   function frame(o) {
     const tabs = `<div class="tabs">${PL.schuljahrMonths(o.sy).map(mm => `<div class="tab ${o.active && o.active.y === mm.y && o.active.m === mm.m ? 'on' : ''}" data-nav="${monNav(mm.y, mm.m)}" data-pen="1"><span>${MON3[mm.m]} ${String(mm.y).slice(2)}</span></div>`).join('')}</div>`;
-    const bc = o.bc ? `<div class="bc">${o.bc.map((b, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="lnk" data-nav="${b[1]}" data-pen="1">${esc(b[0])}</span>`).join('')}</div>` : '';
-    const lk = (x, side) => (x ? `<div class="pn lnk" style="${side === 'l' ? 'left:39px' : `right:${o.nr || 68}px`}" data-nav="${x[1]}" data-pen="1">${side === 'l' ? '‹ ' : ''}${esc(x[0])}${side === 'r' ? ' ›' : ''}</div>` : '');
-    return `<div class="pp">${bc}<div class="kick">${o.kick}</div><div class="ttl">${o.title}</div><div class="rule"></div>${lk(o.prev, 'l')}${lk(o.next, 'r')}${o.body}${tabs}<div class="foot" style="left:39px">Schuljahresplaner ${o.sy}/${o.sy + 1} · Niedersachsen</div><div class="foot" style="right:35px">${o.footR || ''}</div></div>`;
+    const link = x => `<span class="lnk" data-nav="${x[1]}" data-pen="1">${esc(x[0])}</span>`;
+    const lk = [];
+    if (o.prev) lk.push(`<span class="lnk" data-nav="${o.prev[1]}" data-pen="1">‹ ${esc(o.prev[0])}</span>`);
+    (o.bc || []).forEach(b => lk.push(link(b)));
+    if (o.next) lk.push(`<span class="lnk" data-nav="${o.next[1]}" data-pen="1">${esc(o.next[0])} ›</span>`);
+    return `<div class="pp"><div class="pph"><span class="t">${o.title}</span>${o.meta ? `<span class="m">${o.meta}</span>` : ''}<div class="lk">${lk.join('<span class="dot"></span>')}</div></div><div class="ppb">${o.body}</div>${tabs}</div>`;
   }
   const terminOn = iso => (S.settings.termine || []).filter(t => t.datum === iso);
 
@@ -138,11 +140,10 @@
       const n = PL.weeksOfMonth(mm.y, mm.m).length, days = new Date(mm.y, mm.m + 1, 0).getDate();
       let hasF = false; for (let d = 1; d <= days && !hasF; d++) if (info(new Date(mm.y, mm.m, d)).fer) hasF = true;
       const cur = now.getFullYear() === mm.y && now.getMonth() === mm.m;
-      return `<div class="ovt ${cur ? 'cur' : ''}" data-nav="${monNav(mm.y, mm.m)}" data-pen="1"><b>${PL.MONTHS[mm.m]} ${mm.y}</b><span>${n} Wochenseiten</span>${hasF ? '<span class="f">enthält Ferientage</span>' : ''}</div>`;
+      return `<div class="ovt ${cur ? 'cur' : ''}" data-nav="${monNav(mm.y, mm.m)}" data-pen="1"><b>${PL.MONTHS[mm.m]} ${mm.y}</b><span>${n} Wochen</span>${hasF ? '<span class="f">mit Ferientagen</span>' : ''}</div>`;
     }).join('');
-    return frame({ sy, kick: 'NAVIGATION', title: 'Übersicht &amp; Inhalt', footR: 'Übersicht',
-      body: `<div class="ovtxt">Tippe auf einen Eintrag, um direkt dorthin zu springen. Diese Übersicht erreichst du von jeder Seite über „Übersicht“ oben rechts.</div>
-        <div class="ovb1" data-nav="ferien:" data-pen="1">Ferienübersicht Niedersachsen — alle Termine auf einen Blick</div><div class="ovb2" data-nav="pnote:1" data-pen="1">Notizen</div><div class="ovg">${tiles}</div>` });
+    return frame({ sy, title: 'Übersicht', meta: `Schuljahr ${sy}/${String(sy + 1).slice(2)} · Niedersachsen`,
+      body: `<div class="ovq"><div class="f" data-nav="ferien:" data-pen="1">Ferien und Feiertage</div><div class="n" data-nav="pnote:1" data-pen="1">Notizen</div></div><div class="ovg">${tiles}</div>` });
   }
   function buildFerien(sy) {
     const a = `${sy}-08-01`, b = `${sy + 1}-07-31`;
@@ -150,20 +151,20 @@
     const hol = Object.entries({ ...PL.feiertage(sy), ...PL.feiertage(sy + 1) }).filter(([d]) => d >= a && d <= b).sort((x, y) => x[0].localeCompare(y[0]));
     const term = (S.settings.termine || []).filter(t => t.datum >= a && t.datum <= b).sort((x, y) => x.datum.localeCompare(y.datum));
     const dstr = iso => PL.de(PL.parseISO(iso));
-    return frame({ sy, kick: `SCHULJAHR ${sy}/${sy + 1}`, title: 'Ferienübersicht Niedersachsen', bc: [['Übersicht', 'ov:']], footR: 'Ferienübersicht',
-      body: `<div class="fh" style="left:39px">Schulferien</div><div class="fh" style="left:480px">Gesetzliche Feiertage</div>
-        <div class="fl">${fer.map(f => `<div class="fc"><b>${esc(f.name)}</b><span>${dstr(f.von)}${f.bis !== f.von ? ' – ' + dstr(f.bis) : ''}   (${PL.daysBetween(f.von, f.bis)} Tag${PL.daysBetween(f.von, f.bis) > 1 ? 'e' : ''})</span></div>`).join('')}</div>
-        <div class="fr">${hol.map(([d, n]) => `<div class="fe"><b>${dstr(d)} (${PL.WD2[(PL.parseISO(d).getDay() + 6) % 7]})</b><span>${esc(n)}</span></div>`).join('')}</div>
-        ${term.length ? `<div class="ft"><h4>Wichtige Termine</h4>${term.map(t => `<div>${dstr(t.datum)} — ${esc(t.name)}</div>`).join('')}</div>` : ''}
-        <div class="fnote">Hinweis: Ferientermine gemäß Ferienordnung des Niedersächsischen Kultusministeriums, gesetzliche Feiertage für Niedersachsen. Ohne Gewähr — im Zweifel den Kalender der Schule prüfen. Anpassbar unter Einstellungen.</div>` });
+    const wd = iso => PL.WD2[(PL.parseISO(iso).getDay() + 6) % 7];
+    return frame({ sy, title: 'Ferien und Feiertage', meta: `Schuljahr ${sy}/${String(sy + 1).slice(2)}`, bc: [['Übersicht', 'ov:']],
+      body: `<div class="fw"><div><h4>Schulferien</h4>${fer.map(f => { const n = PL.daysBetween(f.von, f.bis); return `<div class="fi f"><b>${esc(f.name)}</b><span>${dstr(f.von)}${f.bis !== f.von ? ' – ' + dstr(f.bis) : ''} · ${n} Tag${n > 1 ? 'e' : ''}</span></div>`; }).join('')}
+        ${term.length ? `<h4 style="margin-top:16px">Wichtige Termine</h4>${term.map(t => `<div class="fi t"><b>${esc(t.name)}</b><span>${wd(t.datum)}, ${dstr(t.datum)}</span></div>`).join('')}` : ''}</div>
+        <div><h4>Gesetzliche Feiertage</h4>${hol.map(([d, n]) => `<div class="fi h"><b>${esc(n)}</b><span>${wd(d)}, ${dstr(d)}</span></div>`).join('')}
+        <div class="fnote">Ferienordnung des Niedersächsischen Kultusministeriums, Feiertage für Niedersachsen. Ohne Gewähr, im Zweifel mit dem Schulkalender abgleichen. Anpassbar unter Einstellungen.</div></div></div>` });
   }
   function buildMonth(y, m, info) {
     const sy = PL.schuljahrOf(new Date(y, m, 1)), first = new Date(y, m, 1), start = PL.mondayOf(first), last = new Date(y, m + 1, 0);
-    const weeks = Math.round((PL.mondayOf(last) - start) / 86400000 / 7) + 1, assigned = PL.weeksOfMonth(y, m).map(PL.iso), todayIso = PL.iso(new Date());
-    let cells = WDS.map((w, i) => `<div class="mh ${i > 4 ? 'we' : ''}">${PL.WD[i]}</div>`).join(''), wk = '';
+    const weeks = Math.round((PL.mondayOf(last) - start) / 86400000 / 7) + 1, todayIso = PL.iso(new Date());
+    let cells = '<div class="mh">KW</div>' + PL.WD.map(w => `<div class="mh">${w}</div>`).join('');
     for (let w = 0; w < weeks; w++) {
       const mon = PL.addDays(start, w * 7), mIso = PL.iso(mon);
-      wk += assigned.includes(mIso) ? `<div class="wkt" data-nav="week:${mIso}" data-pen="1"><span>Woche</span></div>` : '<div></div>';
+      cells += `<div class="mk" data-nav="week:${mIso}" data-pen="1">${PL.isoWeek(mon).week}</div>`;
       for (let i = 0; i < 7; i++) {
         const d = PL.addDays(mon, i), inf = info(d), out = d.getMonth() !== m;
         let labs = '';
@@ -177,9 +178,9 @@
       }
     }
     const pm = new Date(y, m - 1, 1), nm = new Date(y, m + 1, 1);
-    return frame({ sy, active: { y, m }, kick: 'MONATSÜBERSICHT', title: `${PL.MONTHS[m]} ${y}`, bc: [['Übersicht', 'ov:'], ['Ferien', 'ferien:']], footR: `${PL.MONTHS[m]} ${y}`, nr: 96,
+    return frame({ sy, active: { y, m }, title: `${PL.MONTHS[m]} ${y}`, meta: `Schuljahr ${sy}/${String(sy + 1).slice(2)}`, bc: [['Übersicht', 'ov:'], ['Ferien', 'ferien:']],
       prev: [`${MON3[pm.getMonth()]} ${pm.getFullYear()}`, monNav(pm.getFullYear(), pm.getMonth())], next: [`${MON3[nm.getMonth()]} ${nm.getFullYear()}`, monNav(nm.getFullYear(), nm.getMonth())],
-      body: `<div class="mg" style="grid-template-rows:21px repeat(${weeks},1fr)">${cells}</div><div class="wk" style="grid-template-rows:repeat(${weeks},1fr)">${wk}</div>` });
+      body: `<div class="mg" style="grid-template-rows:32px repeat(${weeks},minmax(0,1fr))">${cells}</div>` });
   }
   function buildWeek(monIso, info) {
     const mon = PL.parseISO(monIso), th = PL.addDays(mon, 3), y = th.getFullYear(), m = th.getMonth(), sy = PL.schuljahrOf(th), todayIso = PL.iso(new Date());
@@ -187,16 +188,17 @@
       const d = PL.addDays(mon, i), inf = info(d), t = terminOn(inf.iso);
       const cls = inf.hol ? 'hol' : inf.fer ? 'fer' : i > 4 ? 'we' : 'sch';
       let lab = ''; if (inf.hol) lab += `<em>${esc(inf.hol)}</em>`; if (inf.fer) lab += `<em>${esc(inf.fer.name)}</em>`; t.forEach(x => { lab += `<em>${esc(x.name)}</em>`; });
-      return `<div class="wcol ${cls}${inf.iso === todayIso ? ' today' : ''}"><div class="wch"><b>${PL.WD[i]}</b><u>${PL.de(d)}</u>${lab}</div><div class="wcb"></div></div>`;
+      return `<div class="wcol ${cls}${inf.iso === todayIso ? ' today' : ''}" data-date="${inf.iso}"><div class="wch"><b>${PL.WD[i]}</b><u>${PL.deShort(d)}</u>${lab}</div><div class="wcb"></div></div>`;
     };
-    const wkNo = d => PL.isoWeek(d).week, pw = PL.addDays(mon, -7), nw = PL.addDays(mon, 7);
-    return frame({ sy, active: { y, m }, kick: `KW ${wkNo(mon)}  ·  ${PL.deShort(mon)} – ${PL.de(PL.addDays(mon, 6))}`, title: 'Wochenplaner', bc: [['Übersicht', 'ov:'], [`${PL.MONTHS[m]} ${y}`, monNav(y, m)], ['Ferien', 'ferien:']], footR: `KW ${wkNo(mon)} · ${PL.MONTHS[m]} ${y}`,
-      prev: [`KW ${wkNo(pw)} (${PL.deShort(pw)})`, `week:${PL.iso(pw)}`], next: [`KW ${wkNo(nw)} (${PL.deShort(nw)})`, `week:${PL.iso(nw)}`],
+    const wkNo = d => PL.isoWeek(d).week, pw = PL.addDays(mon, -7), nw = PL.addDays(mon, 7), sun = PL.addDays(mon, 6);
+    const range = mon.getMonth() === sun.getMonth() ? `${mon.getDate()}. – ${sun.getDate()}. ${PL.MONTHS[sun.getMonth()]} ${sun.getFullYear()}` : `${mon.getDate()}. ${PL.MONTHS[mon.getMonth()]} – ${sun.getDate()}. ${PL.MONTHS[sun.getMonth()]} ${sun.getFullYear()}`;
+    return frame({ sy, active: { y, m }, title: `KW ${wkNo(mon)}`, meta: range, bc: [['Übersicht', 'ov:'], [`${PL.MONTHS[m]}`, monNav(y, m)], ['Ferien', 'ferien:']],
+      prev: [`KW ${wkNo(pw)}`, `week:${PL.iso(pw)}`], next: [`KW ${wkNo(nw)}`, `week:${PL.iso(nw)}`],
       body: `<div class="wg">${[0, 1, 2, 3, 4].map(col).join('')}<div class="wside">${col(5)}${col(6)}</div></div>` });
   }
   function buildPNote(sy, n) {
-    return frame({ sy, kick: `NOTIZEN  ·  ${n} / 8`, title: 'Notizen', bc: [['Übersicht', 'ov:']], footR: `Notizen ${n}/8`,
-      prev: n > 1 ? ['Vorherige Seite', `pnote:${n - 1}`] : null, next: n < 8 ? ['Nächste Seite', `pnote:${n + 1}`] : null, body: '<div class="nl"></div>' });
+    return frame({ sy, title: 'Notizen', meta: `Seite ${n} von 8`, bc: [['Übersicht', 'ov:']],
+      prev: n > 1 ? ['Vorherige', `pnote:${n - 1}`] : null, next: n < 8 ? ['Nächste', `pnote:${n + 1}`] : null, body: '<div class="nl"></div>' });
   }
   function pageDef() {
     const v = S.view, info = PL.makeDayInfo(S.settings.ferien), W = PPW, H = PPH;
@@ -308,23 +310,24 @@
 
   function toolsHtml() {
     const s = S.settings, P = S.P, hl = s.tool === 'hl';
-    const pal = hl ? HL_COLORS : PEN_COLORS, cur = hl ? s.hlColor : s.penColor, sizes = hl ? HL_SIZES : PEN_SIZES, si = hl ? s.hlSize : s.penSize;
-    const can = P && P.ink;
-    let h = `<div class="grp"><button class="btn ic ${s.tool === 'pen' ? 'on' : ''}" data-act="tool:pen" aria-label="Stift">${ic('pen')}</button>
-      <button class="btn ic ${hl ? 'on' : ''}" data-act="tool:hl" aria-label="Textmarker">${ic('hl')}</button>
-      <button class="btn ic ${s.tool === 'eraser' ? 'on' : ''}" data-act="tool:eraser" aria-label="Radierer">${ic('eraser')}</button></div>`;
-    if (s.tool !== 'eraser') {
-      h += `<div class="grp">${pal.map(c => `<button class="sw ${c === cur ? 'on' : ''}" style="background:${c}" data-act="color:${c}" aria-label="Farbe"></button>`).join('')}</div>
-        <div class="grp">${sizes.map((z, i) => `<button class="szb ${i === si ? 'on' : ''}" data-act="size:${i}" aria-label="Strichstärke"><span style="width:${hl ? 8 + i * 4 : 3 + i * 3}px;height:${hl ? 8 + i * 4 : 3 + i * 3}px;${hl ? 'border-radius:3px;background:' + cur : ''}"></span></button>`).join('')}</div>`;
+    const can = P && P.ink, cur = hl ? s.hlColor : s.penColor;
+    let pop = '';
+    if (S.popOpen) {
+      const pal = hl ? HL_COLORS : PEN_COLORS, sizes = hl ? HL_SIZES : PEN_SIZES, si = hl ? s.hlSize : s.penSize;
+      pop = `<div class="pop"><p class="pl">${hl ? 'Textmarker' : 'Stift'}: Farbe</p><div class="row">${pal.map(c => `<button class="sw ${c === cur ? 'on' : ''}" style="background:${c}" data-act="color:${c}" aria-label="Farbe ${c}"></button>`).join('')}</div>
+        <p class="pl">Strichstärke</p><div class="row">${sizes.map((z, i) => `<button class="szb ${i === si ? 'on' : ''}" data-act="size:${i}" aria-label="Stärke ${i + 1}"><span style="width:${hl ? 8 + i * 4 : 3 + i * 3}px;height:${hl ? 8 + i * 4 : 3 + i * 3}px;${hl ? 'border-radius:2px;background:' + cur : ''}"></span></button>`).join('')}</div>
+        <button class="btn sm warn" data-act="clear">${ic('trash')} Seite leeren</button></div>`;
     }
-    h += `<div class="sep"></div><div class="grp"><button class="btn ic" data-act="undo" ${can && P.ink.canUndo() ? '' : 'disabled'} aria-label="Rückgängig">${ic('undo')}</button>
-      <button class="btn ic" data-act="redo" ${can && P.ink.canRedo() ? '' : 'disabled'} aria-label="Wiederholen">${ic('redo')}</button>
-      <button class="btn ic" data-act="clear" aria-label="Seite leeren">${ic('trash')}</button></div>
-      <div class="sep"></div><div class="grp"><button class="btn ic" data-act="zoom-out" aria-label="Verkleinern">${ic('minus')}</button>
-      <button class="btn ic" data-act="fit" aria-label="Einpassen">${ic('fit')}</button>
-      <button class="btn ic" data-act="zoom-in" aria-label="Vergrößern">${ic('plus')}</button></div>
-      <button class="btn sm ${s.fingerDraw ? 'on' : ''}" data-act="finger" title="Mit dem Finger zeichnen oder nur scrollen/zoomen">Finger: ${s.fingerDraw ? 'zeichnet' : 'scrollt'}</button>`;
-    return h;
+    return `<div class="grp tools"><button class="btn gh ic ${s.tool === 'pen' ? 'on' : ''}" data-act="tool:pen" aria-label="Stift" title="Stift">${ic('pen')}</button>
+      <button class="btn gh ic ${hl ? 'on' : ''}" data-act="tool:hl" aria-label="Textmarker" title="Textmarker">${ic('hl')}</button>
+      <button class="btn gh ic ${s.tool === 'eraser' ? 'on' : ''}" data-act="tool:eraser" aria-label="Radierer" title="Radierer (auch: Seitentaste am S Pen)">${ic('eraser')}</button>
+      <span class="popwrap"><button class="btn gh ic ${S.popOpen ? 'on' : ''}" data-act="pop" aria-label="Farbe und Stärke" title="Farbe und Stärke"><span class="pdot" style="background:${s.tool === 'eraser' ? 'transparent' : cur}"></span></button>${pop}</span>
+      <span class="vsep"></span>
+      <button class="btn gh ic" data-act="undo" ${can && P.ink.canUndo() ? '' : 'disabled'} aria-label="Rückgängig" title="Rückgängig">${ic('undo')}</button>
+      <button class="btn gh ic" data-act="redo" ${can && P.ink.canRedo() ? '' : 'disabled'} aria-label="Wiederholen" title="Wiederholen">${ic('redo')}</button>
+      <button class="btn gh ic" data-act="fit" aria-label="Einpassen" title="Einpassen">${ic('fit')}</button>
+      <span class="vsep"></span>
+      <button class="btn gh ic ${s.fingerDraw ? 'on' : ''}" data-act="finger" aria-label="Mit dem Finger schreiben" title="${s.fingerDraw ? 'Finger schreibt' : 'Finger blättert und zoomt'}">${ic('hand')}</button></div>`;
   }
   function renderSubInk() {
     const v = S.view;
@@ -334,23 +337,23 @@
       let nav = '', meta = '';
       if (p && p.docId) {
         const sib = S.pages.filter(x => x.docId === p.docId).sort((a, b) => a.idx - b.idx), i = sib.findIndex(x => x.id === p.id);
-        meta = `Seite ${i + 1} / ${sib.length}`;
-        nav = `<button class="btn ic" data-act="note-go:${i > 0 ? sib[i - 1].id : ''}" ${i > 0 ? '' : 'disabled'} aria-label="Vorherige Seite">${ic('left')}</button><button class="btn ic" data-act="note-go:${i < sib.length - 1 ? sib[i + 1].id : ''}" ${i < sib.length - 1 ? '' : 'disabled'} aria-label="Nächste Seite">${ic('right')}</button>`;
+        meta = `Seite ${i + 1} von ${sib.length}`;
+        nav = `<button class="btn gh ic" data-act="note-go:${i > 0 ? sib[i - 1].id : ''}" ${i > 0 ? '' : 'disabled'} aria-label="Vorherige Seite">${ic('left')}</button><button class="btn gh ic" data-act="note-go:${i < sib.length - 1 ? sib[i + 1].id : ''}" ${i < sib.length - 1 ? '' : 'disabled'} aria-label="Nächste Seite">${ic('right')}</button>`;
       }
-      left = `<div class="grp"><button class="btn" data-act="nav-notes">${ic('left')} Notizen</button>${nav}<div class="ttl" style="min-width:120px">${esc(p ? (p.docName || p.name) : '')}${meta ? `<small>${meta}</small>` : ''}</div></div>`;
+      left = `<div class="grp"><button class="btn gh" data-act="nav-notes" title="Notizen">${ic('left')} Notizen</button>${nav}<div class="ttl l">${esc(p ? (p.docName || p.name) : '')}${meta ? `<small>${meta}</small>` : ''}</div></div>`;
     } else {
       let title = '', small = '';
-      if (v.t === 'ov') title = `Übersicht ${sjLabel(S.sy)}`;
-      else if (v.t === 'ferien') title = 'Ferienübersicht';
+      if (v.t === 'ov') title = `Schuljahr ${sjLabel(S.sy)}`;
+      else if (v.t === 'ferien') { title = 'Ferien'; small = `Schuljahr ${sjLabel(S.sy)}`; }
       else if (v.t === 'pnote') { title = `Notizen ${v.n}/8`; small = `Schuljahr ${sjLabel(S.sy)}`; }
       else if (v.t === 'month') { title = `${PL.MONTHS[v.m]} ${v.y}`; small = `Schuljahr ${sjLabel(S.sy)}`; }
-      else { const mon = PL.parseISO(v.mon); title = `KW ${PL.isoWeek(mon).week}`; small = `${PL.deShort(mon)} – ${PL.de(PL.addDays(mon, 6))}`; }
+      else { const mon = PL.parseISO(v.mon); title = `KW ${PL.isoWeek(mon).week}`; small = `${PL.deShort(mon)} – ${PL.deShort(PL.addDays(mon, 6))}`; }
       const ovv = v.t === 'ov' || v.t === 'ferien' || v.t === 'pnote';
       const stepable = !(v.t === 'ov' || v.t === 'ferien');
-      left = `<div class="grp"><div class="seg"><button class="${ovv ? 'on' : ''}" data-act="view-ov">Übersicht</button><button class="${v.t === 'month' ? 'on' : ''}" data-act="view-month">Monat</button><button class="${v.t === 'week' ? 'on' : ''}" data-act="view-week">Woche</button></div></div>
-        <div class="grp"><button class="btn ic" data-act="prev" aria-label="Zurück" ${stepable ? '' : 'disabled'}>${ic('left')}</button><div class="ttl">${title}${small ? `<small>${small}</small>` : ''}</div><button class="btn ic" data-act="next" aria-label="Weiter" ${stepable ? '' : 'disabled'}>${ic('right')}</button><button class="btn" data-act="today">Heute</button></div>`;
+      left = `<div class="seg"><button class="${ovv ? 'on' : ''}" data-act="view-ov">Jahr</button><button class="${v.t === 'month' ? 'on' : ''}" data-act="view-month">Monat</button><button class="${v.t === 'week' ? 'on' : ''}" data-act="view-week">Woche</button></div>
+        <div class="grp"><button class="btn gh ic" data-act="prev" aria-label="Zurück" ${stepable ? '' : 'disabled'}>${ic('left')}</button><div class="ttl">${title}${small ? `<small>${small}</small>` : ''}</div><button class="btn gh ic" data-act="next" aria-label="Weiter" ${stepable ? '' : 'disabled'}>${ic('right')}</button><button class="btn gh" data-act="today">Heute</button></div>`;
     }
-    setSub(left + '<div class="sep"></div>' + toolsHtml());
+    setSub(left + toolsHtml());
   }
 
   /* ---------- Kalender-Navigation ---------- */
@@ -503,7 +506,7 @@
         $('#sbulkadd', ov).onclick = () => {
           const lines = $('#sbulk', ov).value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
           lines.forEach(l => { let p = l.split(/\t|;|,/).map(x => x.trim()); if (p.length === 1) { const w = l.split(/\s+/); p = w.length > 1 ? [w.slice(1).join(' '), w[0]] : [l, '']; } tb.insertAdjacentHTML('beforeend', row({ nachname: p[0], vorname: p.slice(1).join(' ') })); });
-          $('#sbulk', ov).value = ''; if (lines.length) toast(`${lines.length} Einträge hinzugefügt – oben speichern nicht vergessen`);
+          $('#sbulk', ov).value = ''; if (lines.length) toast(`${lines.length} Einträge ergänzt, mit „Speichern“ übernehmen`);
         };
         if (!c.students.length) $('#sbulk', ov).focus();
       } });
@@ -526,7 +529,7 @@
   function viewClass() {
     const c = getClass(S.view.id); if (!c) { go({ t: 'classes' }, false); return; }
     const typ = S.classFilter[c.id] || 'alle';
-    setSub(`<div class="grp"><button class="btn" data-act="nav-classes">${ic('left')} Klassen</button><div class="ttl" style="min-width:120px">${esc(c.name)}${c.fach ? `<small>${esc(c.fach)}</small>` : ''}</div></div><div class="sep"></div>
+    setSub(`<div class="grp"><button class="btn gh" data-act="nav-classes">${ic('left')} Klassen</button><div class="ttl l">${esc(c.name)}${c.fach ? `<small>${esc(c.fach)}</small>` : ''}</div></div>
       <div class="grp"><button class="btn pri" data-act="col-new">${ic('plus')} Bewertung</button><button class="btn" data-act="students">${ic('users')} Schüler</button><button class="btn" data-act="class-edit">Klasse bearbeiten</button><button class="btn" data-act="export-class" ${c.students.length ? '' : 'disabled'}>${ic('download')} Excel</button></div>`);
     const used = PL.TYPEN.filter(t => c.cols.some(x => x.typ === t));
     const cols = c.cols.filter(x => typ === 'alle' || x.typ === typ);
@@ -535,13 +538,13 @@
     if (!c.students.length) body += `<div class="card"><b>Noch keine Schüler.</b><p class="muted">Füge die Klassenliste hinzu – du kannst sie auch aus Excel kopieren und einfügen.</p><button class="btn pri" data-act="students">${ic('users')} Schüler hinzufügen</button></div>`;
     else if (!c.cols.length) body += `<div class="card"><b>Noch keine Bewertung.</b><p class="muted">Lege eine Bewertung an (z. B. „Mitarbeit“, „Vokabeltest“) und trage dann Prozentwerte ein.</p><button class="btn pri" data-act="col-new">${ic('plus')} Bewertung anlegen</button></div>`;
     else {
-      body += `<div class="gridwrap"><table class="g"><thead><tr><th class="sticky nr" style="left:0;min-width:38px">Nr.</th><th class="sticky nm" style="left:38px;text-align:left;min-width:190px">Name</th>
+      body += `<div class="gridwrap"><table class="g"><thead><tr><th class="sticky nr" style="left:0;min-width:40px">Nr.</th><th class="sticky nm" style="left:40px;text-align:left;min-width:190px">Name</th>
         ${cols.map(x => `<th class="col" data-act="col-edit:${x.id}"><span class="ct">${esc(x.titel)}</span><span class="cm">${x.datum ? PL.deShort(PL.parseISO(x.datum)) : ''} · ${esc(x.typ)}${x.gewicht !== 1 ? ' · ×' + fmt(x.gewicht) : ''}</span></th>`).join('')}
         <th class="rt" style="right:76px">Ø %</th><th class="rt" style="right:0">Note</th></tr></thead><tbody>
-        ${c.students.map((s, i) => `<tr><td class="sticky nr" style="left:0">${i + 1}</td><td class="sticky nm" style="left:38px">${esc(s.nachname)}${s.vorname ? ', ' + esc(s.vorname) : ''}</td>
+        ${c.students.map((s, i) => `<tr><td class="sticky nr" style="left:0">${i + 1}</td><td class="sticky nm" style="left:40px">${esc(s.nachname)}${s.vorname ? ', ' + esc(s.vorname) : ''}</td>
           ${cols.map(x => { const v = (c.scores[s.id] || {})[x.id], n = PL.noteFromPercent(v, S.settings.key); return `<td><input class="cell${n ? ' n' + n : ''}" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-s="${s.id}" data-c="${x.id}" value="${fmt(v)}" aria-label="${esc(s.nachname)} – ${esc(x.titel)}"></td>`; }).join('')}
           <td class="rt" id="avg-${s.id}" style="right:76px"></td><td class="rt" id="nt-${s.id}" style="right:0"></td></tr>`).join('')}
-        <tr class="avg"><td class="sticky nr" style="left:0;background:#f3f6f9"></td><td class="sticky nm" style="left:38px;background:#f3f6f9">Klassenschnitt</td>${cols.map(x => `<td id="cavg-${x.id}"></td>`).join('')}<td class="rt" id="cavg-all" style="right:76px"></td><td class="rt" id="cavg-note" style="right:0"></td></tr>
+        <tr class="avg"><td class="sticky nr" style="left:0"></td><td class="sticky nm" style="left:40px">Klassenschnitt</td>${cols.map(x => `<td id="cavg-${x.id}"></td>`).join('')}<td class="rt" id="cavg-all" style="right:76px"></td><td class="rt" id="cavg-note" style="right:0"></td></tr>
         </tbody></table></div><div class="spiegel" id="spiegel"></div>`;
     }
     $('#main').innerHTML = `<div class="scroll">${body}</div>`;
@@ -580,7 +583,7 @@
 
   /* ---------- Einstellungen ---------- */
   function viewSettings() {
-    setSub('<div class="ttl" style="text-align:left">Einstellungen</div>');
+    setSub('');
     const s = S.settings, k = s.key;
     const backup = s.lastBackup ? new Date(s.lastBackup).toLocaleDateString('de-DE') : 'noch nie';
     $('#main').innerHTML = `<div class="scroll"><div class="wrap">
@@ -593,14 +596,14 @@
       <div class="card"><b>Wichtige Termine</b><p class="muted">Erscheinen im Kalender (Monat/Woche) und auf der Ferienübersicht.</p><table class="tbl"><tbody>
         ${(s.termine || []).slice().sort((a, b) => a.datum.localeCompare(b.datum)).map(t => `<tr><td><input type="text" data-t="${t.id}" data-k="name" value="${esc(t.name)}"></td><td><input type="date" data-t="${t.id}" data-k="datum" value="${t.datum}"></td><td style="width:50px"><button class="btn sm ic warn" data-act="termin-del:${t.id}" aria-label="Löschen">×</button></td></tr>`).join('')}</tbody></table>
         <div class="row" style="margin-top:10px"><button class="btn sm" data-act="termin-add">${ic('plus')} Termin</button></div></div>
-      <div class="card" style="margin-top:14px"><b>Notenschlüssel (Prozent)</b>
+      <div class="card"><b>Notenschlüssel (Prozent)</b>
         <p class="muted">Voreingestellt: IHK-Schlüssel (92 / 81 / 67 / 50 / 30). Note 6 gilt darunter.</p>
         <div class="row">${[1, 2, 3, 4, 5].map(i => `<div class="field" style="width:110px"><label>Note ${i} ab %</label><input type="number" inputmode="decimal" data-key="${i - 1}" value="${k[i - 1]}" min="0" max="100" step="1"></div>`).join('')}</div>
         <button class="btn sm" data-act="key-reset">Auf IHK-Standard zurücksetzen</button></div>
-      <div class="card" style="margin-top:14px" id="lockcard">${lockCardHtml()}</div>
-      <div class="card" style="margin-top:14px"><b>Datensicherung</b>
+      <div class="card" id="lockcard">${lockCardHtml()}</div>
+      <div class="card"><b>Datensicherung</b>
         <p class="muted">Alle Daten (Klassen, Noten, Handschrift, PDFs) liegen nur auf diesem Tablet. Sichere sie regelmäßig – z. B. in OneDrive/Google Drive. Letztes Backup: <b>${backup}</b>.</p>
-        <p class="muted">${S.persisted ? '✓ Der Browser schützt den Speicher dauerhaft vor automatischem Löschen.' : 'Hinweis: Installiere die App über das Browser-Menü („Zum Startbildschirm hinzufügen“), damit der Speicher dauerhaft geschützt wird.'}</p>
+        <p class="muted">${S.persisted ? 'Der Browser schützt den Speicher dauerhaft vor automatischem Löschen.' : 'Hinweis: Installiere die App über das Browser-Menü („Zum Startbildschirm hinzufügen“), damit der Speicher dauerhaft geschützt wird.'}</p>
         <div class="row"><button class="btn pri" data-act="backup-export">${ic('download')} Backup erstellen</button><button class="btn" data-act="backup-import">${ic('upload')} Backup einspielen</button></div>
         <input type="file" id="backupIn" hidden accept="application/json,.json"></div>
       </div></div>`;
@@ -654,7 +657,7 @@
     if (!on) return `<b>Sperre &amp; Verschlüsselung</b>
       <p class="muted">Optional. Schützt die App mit einem Passwort und verschlüsselt alle Daten auf dem Tablet (AES-256). Danach kannst du zusätzlich den Fingerabdruck als Abkürzung einschalten.</p>
       <button class="btn pri" data-act="lock-enable">${ic('lock')} Sperre einschalten</button>`;
-    return `<b>Sperre &amp; Verschlüsselung: <span style="color:var(--ok,#1c7c4a)">eingeschaltet</span></b>
+    return `<b>Sperre &amp; Verschlüsselung: <span style="color:var(--ok)">eingeschaltet</span></b>
       <p class="muted">Alle Daten sind mit AES-256 verschlüsselt. Ohne Passwort sind sie nicht lesbar – auch nicht für mich oder den Browser-Hersteller.</p>
       <div class="row" style="align-items:flex-end"><div class="field" style="width:230px"><label>Automatisch sperren nach</label><select data-lockmin>${LOCK_MINS.map(m => `<option value="${m}" ${S.lockOpts.min === m ? 'selected' : ''}>${m} Minute${m > 1 ? 'n' : ''} Inaktivität</option>`).join('')}</select></div>
         <button class="btn" data-act="lock-now">${ic('lock')} Jetzt sperren</button><button class="btn" data-act="lock-pw">Passwort ändern</button></div>
@@ -744,7 +747,7 @@
     try { if (S.P) await flushInk(S.P); cleanupPage(); } catch (_) { }
     DB.setKey(null, true); S.dek = null; S.classes = []; S.pages = [];
     document.querySelectorAll('.ov').forEach(e => e.remove());
-    $('#main').innerHTML = ''; $('#sub').innerHTML = ''; $('#top').innerHTML = '';
+    $('#main').innerHTML = ''; $('#sub').innerHTML = ''; $('#nav').innerHTML = ''; $('#topr').innerHTML = '';
     await unlockFlow(); await loadState(); S.locked = false; render(); armIdle();
   }
   function armIdle() {
@@ -765,6 +768,7 @@
     const i = el.dataset.act.indexOf(':'), name = i < 0 ? el.dataset.act : el.dataset.act.slice(0, i), arg = i < 0 ? '' : el.dataset.act.slice(i + 1);
     act(name, arg);
   });
+  document.addEventListener('pointerdown', e => { if (S.popOpen && !e.target.closest('.popwrap')) { S.popOpen = false; if (S.P) renderSubInk(); } }, true);
   function act(name, arg) {
     const s = S.settings, P = S.P;
     switch (name) {
@@ -776,13 +780,13 @@
       case 'prev': return stepCal(-1);
       case 'next': return stepCal(1);
       case 'today': return goToday();
-      case 'tool': s.tool = arg; saveSettings(); return renderSubInk();
+      case 'tool': s.tool = arg; S.popOpen = false; saveSettings(); return renderSubInk();
+      case 'pop': S.popOpen = !S.popOpen; return renderSubInk();
       case 'color': if (s.tool === 'hl') s.hlColor = arg; else s.penColor = arg; saveSettings(); return renderSubInk();
       case 'size': if (s.tool === 'hl') s.hlSize = +arg; else s.penSize = +arg; saveSettings(); return renderSubInk();
       case 'undo': return P && P.ink.undo();
       case 'redo': return P && P.ink.redo();
-      case 'clear': if (P && P.ink.strokes.length) ask('Seite leeren?', 'Alle Handschrift-Notizen auf dieser Seite entfernen? (Danach mit „Rückgängig“ wiederherstellbar, solange du die Seite nicht verlässt.)', 'Leeren', true).then(ok => ok && S.P === P && P.ink.clearAll()); return;
-      case 'zoom-in': case 'zoom-out': { if (!P) return; const st = $('#stage'), r = st.getBoundingClientRect(); return zoomTo(P.scale * (name === 'zoom-in' ? 1.25 : 0.8), r.left + r.width / 2, r.top + r.height / 2); }
+      case 'clear': S.popOpen = false; renderSubInk(); if (P && P.ink.strokes.length) ask('Seite leeren?', 'Alle Handschrift-Notizen auf dieser Seite entfernen? (Danach mit „Rückgängig“ wiederherstellbar, solange du die Seite nicht verlässt.)', 'Leeren', true).then(ok => ok && S.P === P && P.ink.clearAll()); return;
       case 'fit': if (!P) return; P.fit = P.fit === 'page' ? 'width' : 'page'; P.scale = fitScale(P.fit); applySize(); { const st = $('#stage'); st.scrollLeft = 0; st.scrollTop = 0; } return;
       case 'finger': s.fingerDraw = !s.fingerDraw; saveSettings(); return renderSubInk();
       case 'note-new': return newNoteDialog();
