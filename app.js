@@ -38,7 +38,7 @@
   const HL_SIZES = [12, 18, 28];
 
   const CAL = ['ov', 'ferien', 'pnote', 'month', 'week'];
-  const APP_VERSION = '1.4.1';
+  const APP_VERSION = '1.4.2';
   const S = { sy: PL.schuljahrOf(new Date()), settings: null, classes: [], pages: [], view: null, P: null, lastCal: null, classFilter: {}, persisted: null };
 
   /* ---------- Hilfen ---------- */
