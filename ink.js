@@ -6,7 +6,7 @@
   class Ink {
     /* hooks: tool(), color(), size(), fingerDraw(), onChange(strokes), onTap(x,y), pan(dx,dy), zoomTo(s,cx,cy), getScale() */
     constructor(cv, hooks) {
-      this.cv = cv; this.ctx = cv.getContext('2d', { desynchronized: true }) || cv.getContext('2d'); this.h = hooks;
+      this.cv = cv; this.ctx = cv.getContext('2d'); // kein „desynchronized“: auf Android wird die durchsichtige Ebene sonst schwarz this.h = hooks;
       this.W = 1000; this.H = 1000; this.scale = 1; this.dpr = 1;
       this.strokes = []; this.undoS = []; this.redoS = [];
       this.base = document.createElement('canvas'); this.bctx = this.base.getContext('2d');
