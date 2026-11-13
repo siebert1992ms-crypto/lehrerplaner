@@ -17,6 +17,7 @@
       cv.addEventListener('pointermove', e => this._move(e));
       cv.addEventListener('pointerup', e => this._up(e, false));
       cv.addEventListener('pointercancel', e => this._up(e, true));
+      cv.addEventListener('pointerout', e => { if (this.active && this.active.btn && this.active.id === e.pointerId) this._up(e, false); });
       cv.addEventListener('pointerleave', e => { if (!this.active && this.eraserPos) { this.eraserPos = null; this._sched(); } });
       cv.addEventListener('contextmenu', e => e.preventDefault());
       let dbg = false; try { dbg = localStorage.getItem('pendebug') === '1'; } catch (_) { }
@@ -163,6 +164,13 @@
     }
     _move(e) {
       if (e.pointerType === 'pen') this.lastPen = performance.now();
+      /* S Pen am Tab S9: Mit gedrückter Seitentaste schickt Chrome kein pointerdown, sondern nur
+         Bewegungen mit buttons=1 (und am Ende ein contextmenu). Genau das ist hier das Radier-Signal. */
+      if (e.pointerType === 'pen' && !this.active && (e.buttons & 1)) {
+        this.active = { id: e.pointerId, btn: true }; this.erasing = { list: [] };
+        try { this.cv.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      }
+      if (this.active && this.active.btn && this.active.id === e.pointerId && !(e.buttons & 1)) { this._up(e, false); return; }
       if (this.active && this.active.id === e.pointerId) {
         if (this.cur && !this.erasing && e.pointerType !== 'touch' && this._btnErase(e)) {
           // Taste während des Schreibens gedrückt: Strich abschließen, ab hier radieren
