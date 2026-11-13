@@ -6,7 +6,7 @@
   class Ink {
     /* hooks: tool(), color(), size(), fingerDraw(), onChange(strokes), onTap(x,y), pan(dx,dy), zoomTo(s,cx,cy), getScale() */
     constructor(cv, hooks) {
-      this.cv = cv; this.ctx = cv.getContext('2d'); this.h = hooks;
+      this.cv = cv; this.ctx = cv.getContext('2d', { desynchronized: true }) || cv.getContext('2d'); this.h = hooks;
       this.W = 1000; this.H = 1000; this.scale = 1; this.dpr = 1;
       this.strokes = []; this.undoS = []; this.redoS = [];
       this.base = document.createElement('canvas'); this.bctx = this.base.getContext('2d');
@@ -19,15 +19,17 @@
       cv.addEventListener('pointercancel', e => this._up(e, true));
       cv.addEventListener('pointerleave', e => { if (!this.active && this.eraserPos) { this.eraserPos = null; this._sched(); } });
       cv.addEventListener('contextmenu', e => e.preventDefault());
-      if (/[?#&]pendebug/.test(location.href)) Ink.debug();
+      let dbg = false; try { dbg = localStorage.getItem('pendebug') === '1'; } catch (_) { }
+      if (dbg || /[?#&]pendebug/.test(location.href)) Ink.debug();
     }
 
     /* ---- Größe/Zoom ---- */
     layout(W, H, scale) {
-      this.W = W; this.H = H; this.scale = scale;
       let dpr = Math.min(window.devicePixelRatio || 1, 2.5);
       const px = W * scale * dpr, py = H * scale * dpr, max = 14e6;
       if (px * py > max) dpr *= Math.sqrt(max / (px * py));
+      if (W === this.W && H === this.H && scale === this.scale && dpr === this.dpr && this.cv.width > 1) return; // nichts geändert: Leinwand nicht neu anlegen
+      this.W = W; this.H = H; this.scale = scale;
       this.dpr = dpr;
       const w = Math.max(1, Math.round(W * scale * dpr)), h = Math.max(1, Math.round(H * scale * dpr));
       this.cv.width = w; this.cv.height = h; this.base.width = w; this.base.height = h;
@@ -71,6 +73,7 @@
     _clear(ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); }
     _renderBase() { this._clear(this.bctx); for (const s of this.strokes) this._drawStroke(this.bctx, s); }
     _full() {
+      if (this.baseDirty) { this.baseDirty = false; this._renderBase(); }
       const c = this.ctx; this._clear(c); c.drawImage(this.base, 0, 0);
       if (this.cur) this._drawStroke(c, this.cur);
       if (this.eraserPos) {
@@ -116,7 +119,7 @@
       for (let i = this.strokes.length - 1; i >= 0; i--) {
         if (this._hit(this.strokes[i], p, 10)) { this.erasing.list.push(this.strokes[i]); this.strokes.splice(i, 1); changed = true; }
       }
-      if (changed) this._renderBase();
+      if (changed) this.baseDirty = true; // neu zeichnen erst im nächsten Bildaufbau, nicht bei jedem Stiftsignal
     }
 
     /* ---- Eingabe ---- */
@@ -255,7 +258,7 @@
     document.body.appendChild(box);
     const log = [];
     const add = t => { log.unshift(t); log.length = 8; box.textContent = log.filter(Boolean).join('\n'); };
-    ['pointerdown', 'pointerup', 'pointercancel', 'contextmenu', 'auxclick'].forEach(type => window.addEventListener(type, e => add(`${type} typ=${e.pointerType || '-'} button=${e.button} buttons=${e.buttons} druck=${e.pressure != null ? e.pressure.toFixed(2) : '-'}`), true));
+    ['pointerdown', 'pointerup', 'pointercancel', 'contextmenu', 'auxclick', 'lostpointercapture'].forEach(type => window.addEventListener(type, e => add(`${type} typ=${e.pointerType || '-'} button=${e.button} buttons=${e.buttons} druck=${e.pressure != null ? e.pressure.toFixed(2) : '-'}`), true));
     let lastB = -1;
     window.addEventListener('pointermove', e => { if (e.buttons !== lastB) { lastB = e.buttons; add(`pointermove typ=${e.pointerType} button=${e.button} buttons=${e.buttons}`); } }, true);
     window.addEventListener('keydown', e => add(`keydown ${e.key}`), true);

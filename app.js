@@ -38,6 +38,7 @@
   const HL_SIZES = [12, 18, 28];
 
   const CAL = ['ov', 'ferien', 'pnote', 'month', 'week'];
+  const APP_VERSION = '1.4.0';
   const S = { sy: PL.schuljahrOf(new Date()), settings: null, classes: [], pages: [], view: null, P: null, lastCal: null, classFilter: {}, persisted: null };
 
   /* ---------- Hilfen ---------- */
@@ -238,7 +239,7 @@
       color: t => (t === 'hl' ? S.settings.hlColor : S.settings.penColor),
       size: t => (t === 'hl' ? HL_SIZES[S.settings.hlSize] : PEN_SIZES[S.settings.penSize]),
       fingerDraw: () => S.settings.fingerDraw,
-      onChange: () => { P.dirty = true; clearTimeout(P.saveT); P.saveT = setTimeout(() => flushInk(P), 400); renderSubInk(); },
+      onChange: () => { P.dirty = true; clearTimeout(P.saveT); P.saveT = setTimeout(() => flushInk(P), 1200); updUndo(); },
       onTap: tapNav, onPenTap: penTap, canSwipe, onSwipe,
       pan: (dx, dy) => { const st = $('#stage'); if (st) { st.scrollLeft += dx; st.scrollTop += dy; } },
       zoomTo, getScale: () => P.scale
@@ -246,7 +247,7 @@
     if (S.swipe) { const sh = $('#sheet'); sh.classList.add(S.swipe); S.swipe = null; }
     renderSubInk();
     P.scale = fitScale(P.fit); applySize(true);
-    P.ro = new ResizeObserver(() => { if (S.P === P && P.fit) { P.scale = fitScale(P.fit); applySize(); } });
+    P.ro = new ResizeObserver(en => { const r = en[0].contentRect, k = Math.round(r.width) + 'x' + Math.round(r.height); if (k === P.roK) return; P.roK = k; if (S.P === P && P.fit) { P.scale = fitScale(P.fit); applySize(); } });
     P.ro.observe($('#stage'));
     if (def.bg) {
       const blob = await DB.get('bg:' + def.id);
@@ -261,20 +262,22 @@
     const st = $('#stage'), P = S.P, aw = st.clientWidth - 24, ah = st.clientHeight - 24;
     return clamp(mode === 'width' ? aw / P.W : Math.min(aw / P.W, ah / P.H), 0.25, 4);
   }
-  function applySize(now) {
+  function applySize(now, lazy) {
     const P = S.P; if (!P) return;
     $('#sheet').style.width = P.W * P.scale + 'px'; $('#sheet').style.height = P.H * P.scale + 'px';
     $('#paper').style.transform = `scale(${P.scale})`;
     const cv = $('#ink'); cv.style.width = P.W * P.scale + 'px'; cv.style.height = P.H * P.scale + 'px';
-    const run = () => { P.raf = 0; if (S.P === P) P.ink.layout(P.W, P.H, P.scale); };
-    if (now) run(); else if (!P.raf) P.raf = requestAnimationFrame(run);
+    const run = () => { P.raf = 0; P.lt = 0; if (S.P === P) P.ink.layout(P.W, P.H, P.scale); };
+    clearTimeout(P.lt);
+    if (now) run(); else if (lazy) P.lt = setTimeout(run, 160); // beim Zoomen erst nach der Geste scharf neu zeichnen
+    else if (!P.raf) P.raf = requestAnimationFrame(run);
   }
   function zoomTo(s, cx, cy) {
     const P = S.P; if (!P) return;
     s = clamp(s, 0.25, 4);
     const st = $('#stage'), r = $('#sheet').getBoundingClientRect();
     const lx = (cx - r.left) / P.scale, ly = (cy - r.top) / P.scale;
-    P.scale = s; P.fit = null; applySize();
+    P.scale = s; P.fit = null; applySize(false, true);
     const r2 = $('#sheet').getBoundingClientRect();
     st.scrollLeft += r2.left + lx * s - cx; st.scrollTop += r2.top + ly * s - cy;
   }
@@ -328,6 +331,11 @@
       <button class="btn gh ic" data-act="fit" aria-label="Einpassen" title="Einpassen">${ic('fit')}</button>
       <span class="vsep"></span>
       <button class="btn gh ic ${s.fingerDraw ? 'on' : ''}" data-act="finger" aria-label="Mit dem Finger schreiben" title="${s.fingerDraw ? 'Finger schreibt' : 'Finger blättert und zoomt'}">${ic('hand')}</button></div>`;
+  }
+  function updUndo() {
+    const P = S.P, u = $('[data-act="undo"]'), r = $('[data-act="redo"]');
+    if (u) u.disabled = !(P && P.ink && P.ink.canUndo());
+    if (r) r.disabled = !(P && P.ink && P.ink.canRedo());
   }
   function renderSubInk() {
     const v = S.view;
@@ -600,6 +608,8 @@
         <p class="muted">Voreingestellt: IHK-Schlüssel (92 / 81 / 67 / 50 / 30). Note 6 gilt darunter.</p>
         <div class="row">${[1, 2, 3, 4, 5].map(i => `<div class="field" style="width:110px"><label>Note ${i} ab %</label><input type="number" inputmode="decimal" data-key="${i - 1}" value="${k[i - 1]}" min="0" max="100" step="1"></div>`).join('')}</div>
         <button class="btn sm" data-act="key-reset">Auf IHK-Standard zurücksetzen</button></div>
+      <div class="card"><b>S Pen</b><p class="muted">Seitentaste gedrückt halten und über einen Strich fahren: radiert. Die Diagnose zeigt unten links, welche Signale der Stift sendet.</p>
+        <button class="btn sm" data-act="pendebug">${(() => { try { return localStorage.getItem('pendebug') === '1'; } catch (_) { return false; } })() ? 'Stift-Diagnose ausblenden' : 'Stift-Diagnose einblenden'}</button></div>
       <div class="card" id="lockcard">${lockCardHtml()}</div>
       <div class="card"><b>Datensicherung</b>
         <p class="muted">Alle Daten (Klassen, Noten, Handschrift, PDFs) liegen nur auf diesem Tablet. Sichere sie regelmäßig – z. B. in OneDrive/Google Drive. Letztes Backup: <b>${backup}</b>.</p>
@@ -816,6 +826,7 @@
       case 'ferien-del': s.ferien = s.ferien.filter(f => f.id !== arg); saveSettings(); return viewSettings();
       case 'ferien-std': { PL.STANDARD_FERIEN.forEach(f => { if (!s.ferien.some(x => x.name === f.name && x.von === f.von)) s.ferien.push({ id: uid(), ...f }); }); saveSettings(); toast('Standardtermine ergänzt.'); return viewSettings(); }
       case 'key-reset': s.key = PL.DEFAULT_KEY.slice(); saveSettings(); return viewSettings();
+      case 'pendebug': { let on = false; try { on = localStorage.getItem('pendebug') === '1'; localStorage.setItem('pendebug', on ? '0' : '1'); } catch (_) { } if (on) { const d = $('#pdbg'); if (d) d.remove(); } else Ink.debug(); return viewSettings(); }
       case 'backup-export': return exportBackup();
       case 'backup-import': return $('#backupIn') && $('#backupIn').click();
     }
@@ -843,6 +854,7 @@
   /* ---------- Start ---------- */
   (async function init() {
     try {
+      const ver = $('#ver'); if (ver) ver.textContent = 'v' + APP_VERSION;
       await DB.open();
       S.lockMeta = await DB.get('meta:lock'); S.lockOpts = (await DB.get('meta:lockopts')) || { min: 5 };
       if (S.lockMeta) { DB.setKey(null, true); await unlockFlow(); armIdle(); }
